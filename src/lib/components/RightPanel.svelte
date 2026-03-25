@@ -188,6 +188,9 @@
 		return `以下は分析対象の文献一覧です（${arts.length}件）:\n\n${lines.join('\n\n')}`;
 	}
 
+	/** Max conversation turns (1 turn = user + assistant) to include in API request */
+	const MAX_HISTORY_TURNS = 10;
+
 	function buildApiMessages(context: string, userText: string) {
 		// messages already contains the new userMsg and empty assistantMsg at this point.
 		// Extract only prior completed conversation turns (exclude the latest user + empty assistant).
@@ -196,9 +199,12 @@
 			.slice(0, -1) // remove the latest userMsg (will be added as userText below)
 			.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
 
+		// Keep only the most recent turns to limit token usage
+		const recentPrior = prior.slice(-(MAX_HISTORY_TURNS * 2));
+
 		return {
-			system: `あなたは文献分析の専門家です。ユーザーから提供された文献データを元に、研究トレンドの分析、要約、比較などを行ってください。\n\n${context}`,
-			messages: [...prior, { role: 'user' as const, content: userText }],
+			system: `あなたは文献調査の専門家です。ユーザーの質問に対して、ユーザーが提供した文献データに基づき日本語で回答してください。\n\n${context}`,
+			messages: [...recentPrior, { role: 'user' as const, content: userText }],
 		};
 	}
 
