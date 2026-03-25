@@ -203,7 +203,7 @@
 		const recentPrior = prior.slice(-(MAX_HISTORY_TURNS * 2));
 
 		return {
-			system: `あなたは文献調査の専門家です。ユーザーの質問に対して、ユーザーが提供した文献データに基づき日本語で簡潔に回答してください。\n\n${context}`,
+			system: `あなたは文献調査の専門家です。ユーザーの質問に対して、ユーザーが提供した文献データに基づき日本語で簡潔に回答してください。回答はアスタリスクを用いた太字強調を避け、文献を引用する場合はIDやタイトルで示してください。\n\n${context}`,
 			messages: [...recentPrior, { role: 'user' as const, content: userText }],
 		};
 	}
