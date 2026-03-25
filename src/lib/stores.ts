@@ -42,7 +42,7 @@ export const focusedArticleId = writable<string | null>(null);
 export const activeProvider = writable<AIProvider>('gemini');
 
 /** Selected model ID */
-export const activeModelId = writable<string>('gemini-2.0-flash');
+export const activeModelId = writable<string>('gemini-2.5-flash');
 
 /** API keys stored per provider */
 export const apiKeys = writable<Record<string, string>>({});
