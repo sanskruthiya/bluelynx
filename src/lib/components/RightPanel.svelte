@@ -157,13 +157,16 @@
 	}
 
 	function buildApiMessages(context: string, userText: string) {
-		const history = messages
+		// messages already contains the new userMsg and empty assistantMsg at this point.
+		// Extract only prior completed conversation turns (exclude the latest user + empty assistant).
+		const prior = messages
 			.filter((m) => m.role === 'user' || (m.role === 'assistant' && m.content))
-			.map((m) => ({ role: m.role, content: m.content }));
+			.slice(0, -1) // remove the latest userMsg (will be added as userText below)
+			.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
 
 		return {
 			system: `あなたは文献分析の専門家です。ユーザーから提供された文献データを元に、研究トレンドの分析、要約、比較などを行ってください。\n\n${context}`,
-			messages: [...history.slice(0, -1), { role: 'user' as const, content: userText }],
+			messages: [...prior, { role: 'user' as const, content: userText }],
 		};
 	}
 
