@@ -60,6 +60,12 @@ export const tokenUsage = writable<TokenUsage>({
 /** Whether AI is currently generating a response */
 export const isAiLoading = writable<boolean>(false);
 
+/** Global loading status for data pipeline (file read → parse → render) */
+export const loadingStatus = writable<{ active: boolean; message: string; progress?: number }>({
+	active: false,
+	message: '',
+});
+
 /** Articles filtered by search + column filters */
 export const filteredArticles = derived(
 	[articles, searchQuery, searchMode, columnFilters],

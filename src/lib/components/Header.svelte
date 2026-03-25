@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { FileUp, Settings, Map, Flame, Loader2 } from 'lucide-svelte';
-	import { articles, columnMetas, mapMode, apiKeys } from '$lib/stores';
+	import { articles, columnMetas, mapMode, apiKeys, loadingStatus } from '$lib/stores';
 	import { parseTSV } from '$lib/tsv-parser';
 	import type { ParseResult } from '$lib/tsv-parser';
 	import type { MapMode } from '$lib/types';
@@ -10,6 +10,16 @@
 	let parseErrors = $state<string[]>([]);
 	let isLoading = $state(false);
 	let loadingMessage = $state('');
+
+	function setStatus(message: string, progress?: number) {
+		loadingMessage = message;
+		loadingStatus.set({ active: true, message, progress });
+	}
+
+	function clearStatus() {
+		isLoading = false;
+		loadingStatus.set({ active: false, message: '' });
+	}
 	let fileInput: HTMLInputElement;
 	let geminiKey = $state('');
 	let claudeKey = $state('');
@@ -56,13 +66,20 @@
 
 	function readFile(file: File) {
 		isLoading = true;
-		loadingMessage = `${file.name} を読み込み中... (${(file.size / 1024 / 1024).toFixed(1)} MB)`;
+		setStatus(`📂 ${file.name} を読み込み中... (${(file.size / 1024 / 1024).toFixed(1)} MB)`, 10);
 		parseErrors = [];
 
 		const reader = new FileReader();
+		reader.onprogress = (e) => {
+			if (e.lengthComputable) {
+				const pct = Math.round((e.loaded / e.total) * 30);
+				setStatus(`📂 ファイル読み込み中... ${Math.round((e.loaded / e.total) * 100)}%`, pct);
+			}
+		};
 		reader.onload = (e) => {
 			const content = e.target?.result as string;
-			loadingMessage = 'パース中...';
+			const lineCount = content.split('\n').length - 1;
+			setStatus(`⚙️ ${lineCount.toLocaleString()} 行をパース中...`, 35);
 
 			// Use Web Worker for large files (>5MB), sync for small files
 			if (content.length > 5_000_000) {
@@ -76,7 +93,7 @@
 				};
 				worker.onerror = (err) => {
 					parseErrors = [`Worker error: ${err.message}`];
-					isLoading = false;
+					clearStatus();
 					worker.terminate();
 				};
 				worker.postMessage(content);
@@ -92,15 +109,17 @@
 	function handleParseResult(result: ParseResult) {
 		parseErrors = result.errors.slice(0, 20);
 		if (result.articles.length > 0) {
-			loadingMessage = `${result.articles.length.toLocaleString()} 件のデータを描画中...`;
+			const count = result.articles.length.toLocaleString();
+			setStatus(`🗂️ ${count} 件のデータを準備中...`, 70);
 			// Defer store update to next frame so loading message renders
 			requestAnimationFrame(() => {
+				setStatus(`🎨 ${count} 件をマップに描画中...`, 85);
 				articles.set(result.articles);
 				columnMetas.set(result.columnMetas);
-				isLoading = false;
+				// clearStatus will be called by MapView after first render
 			});
 		} else {
-			isLoading = false;
+			clearStatus();
 		}
 	}
 

@@ -1,12 +1,25 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import Header from '$lib/components/Header.svelte';
 	import LeftPanel from '$lib/components/LeftPanel.svelte';
 	import MapView from '$lib/components/MapView.svelte';
 	import RightPanel from '$lib/components/RightPanel.svelte';
 	import StatusBar from '$lib/components/StatusBar.svelte';
+	import { loadingStatus } from '$lib/stores';
+
+	let status = $state({ active: false, message: '', progress: 0 });
+
+	$effect(() => {
+		const unsub = loadingStatus.subscribe((s) => {
+			untrack(() => {
+				status = { active: s.active, message: s.message, progress: s.progress ?? 0 };
+			});
+		});
+		return unsub;
+	});
 </script>
 
-<div class="flex h-screen flex-col overflow-hidden">
+<div class="relative flex h-screen flex-col overflow-hidden">
 	<Header />
 
 	<div class="flex flex-1 overflow-hidden">
@@ -27,4 +40,24 @@
 	</div>
 
 	<StatusBar />
+
+	{#if status.active}
+		<div class="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm">
+			<div class="w-full max-w-sm rounded-lg border border-slate-700 bg-slate-900 p-6 shadow-2xl">
+				<div class="flex items-center gap-3 mb-4">
+					<div class="h-5 w-5 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent"></div>
+					<p class="text-sm font-medium text-slate-200">{status.message}</p>
+				</div>
+				{#if status.progress > 0}
+					<div class="h-2 w-full overflow-hidden rounded-full bg-slate-700">
+						<div
+							class="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-500 ease-out"
+							style="width: {status.progress}%"
+						></div>
+					</div>
+					<p class="mt-2 text-right text-xs text-slate-500">{status.progress}%</p>
+				{/if}
+			</div>
+		</div>
+	{/if}
 </div>
