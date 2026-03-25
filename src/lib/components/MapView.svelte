@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { Move, Square, Circle } from 'lucide-svelte';
 	import ArticleDetail from './ArticleDetail.svelte';
 	import {
@@ -39,13 +40,15 @@
 	$effect(() => {
 		const unsubs = [
 			filteredArticles.subscribe((a) => {
-				data = a;
-				recomputeBounds();
-				scheduleRender();
+				untrack(() => {
+					data = a;
+					recomputeBounds();
+					scheduleRender();
+				});
 			}),
-			selectedArticleIds.subscribe((s) => { selected = s; scheduleRender(); }),
+			selectedArticleIds.subscribe((s) => { untrack(() => { selected = s; scheduleRender(); }); }),
 			selectionTool.subscribe((t) => { currentTool = t; }),
-			mapMode.subscribe((m) => { currentMode = m; scheduleRender(); }),
+			mapMode.subscribe((m) => { untrack(() => { currentMode = m; scheduleRender(); }); }),
 		];
 		return () => unsubs.forEach((u) => u());
 	});

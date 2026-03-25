@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { X } from 'lucide-svelte';
 	import { focusedArticle, focusedArticleId } from '$lib/stores';
 	import type { Article } from '$lib/types';
@@ -7,7 +8,7 @@
 	let article = $state<Article | null>(null);
 
 	$effect(() => {
-		const unsub = focusedArticle.subscribe((a) => (article = a));
+		const unsub = focusedArticle.subscribe((a) => { untrack(() => { article = a; }); });
 		return unsub;
 	});
 

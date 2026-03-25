@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { FileUp, Settings, Map, Flame, Loader2 } from 'lucide-svelte';
 	import { articles, columnMetas, mapMode, apiKeys } from '$lib/stores';
 	import { parseTSV } from '$lib/tsv-parser';
@@ -105,13 +106,13 @@
 
 	let currentMapMode = $state<MapMode>('scatter');
 	$effect(() => {
-		const unsub = mapMode.subscribe((m) => (currentMapMode = m));
+		const unsub = mapMode.subscribe((m) => { untrack(() => { currentMapMode = m; }); });
 		return unsub;
 	});
 
 	let articleCount = $state(0);
 	$effect(() => {
-		const unsub = articles.subscribe((a) => (articleCount = a.length));
+		const unsub = articles.subscribe((a) => { untrack(() => { articleCount = a.length; }); });
 		return unsub;
 	});
 </script>

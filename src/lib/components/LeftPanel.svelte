@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { Search, RotateCcw, ChevronDown } from 'lucide-svelte';
 	import {
 		searchQuery,
@@ -23,21 +24,23 @@
 	let selectedIds = $state<Set<string>>(new Set());
 
 	$effect(() => {
-		const unsub = columnMetas.subscribe((m) => (metas = m));
+		const unsub = columnMetas.subscribe((m) => { untrack(() => { metas = m; }); });
 		return unsub;
 	});
 	$effect(() => {
-		const unsub = filteredArticles.subscribe((a) =>
-			(filtered = a.map((ar) => ({ ID: ar.ID, title: ar.title, affiliation: ar.affiliation }))),
-		);
+		const unsub = filteredArticles.subscribe((a) => {
+			untrack(() => {
+				filtered = a.map((ar) => ({ ID: ar.ID, title: ar.title, affiliation: ar.affiliation }));
+			});
+		});
 		return unsub;
 	});
 	$effect(() => {
-		const unsub = filteredCount.subscribe((c) => (fCount = c));
+		const unsub = filteredCount.subscribe((c) => { untrack(() => { fCount = c; }); });
 		return unsub;
 	});
 	$effect(() => {
-		const unsub = selectedArticleIds.subscribe((s) => (selectedIds = s));
+		const unsub = selectedArticleIds.subscribe((s) => { untrack(() => { selectedIds = s; }); });
 		return unsub;
 	});
 

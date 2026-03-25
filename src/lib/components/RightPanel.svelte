@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { Send, Download, Trash2 } from 'lucide-svelte';
 	import {
 		chatMessages,
@@ -20,7 +21,7 @@
 	let chatContainer: HTMLDivElement;
 	let messages = $state<ChatMessage[]>([]);
 	let provider = $state<AIProvider>('gemini');
-	let modelId = $state('gemini-2.0-flash');
+	let modelId = $state('gemini-2.5-flash');
 	let keys = $state<Record<string, string>>({});
 	let usage = $state({ inputTokens: 0, outputTokens: 0, estimatedCostUSD: 0 });
 	let loading = $state(false);
@@ -30,16 +31,18 @@
 
 	$effect(() => {
 		const unsubs = [
-			chatMessages.subscribe((m) => { messages = m; scrollToBottom(); }),
-			activeProvider.subscribe((p) => (provider = p)),
-			activeModelId.subscribe((m) => (modelId = m)),
-			apiKeys.subscribe((k) => (keys = k)),
-			tokenUsage.subscribe((u) => (usage = u)),
-			isAiLoading.subscribe((l) => (loading = l)),
-			selectedCount.subscribe((c) => (selCount = c)),
-			filteredCount.subscribe((c) => (filCount = c)),
+			chatMessages.subscribe((m) => { untrack(() => { messages = m; scrollToBottom(); }); }),
+			activeProvider.subscribe((p) => { untrack(() => { provider = p; }); }),
+			activeModelId.subscribe((m) => { untrack(() => { modelId = m; }); }),
+			apiKeys.subscribe((k) => { untrack(() => { keys = k; }); }),
+			tokenUsage.subscribe((u) => { untrack(() => { usage = u; }); }),
+			isAiLoading.subscribe((l) => { untrack(() => { loading = l; }); }),
+			selectedCount.subscribe((c) => { untrack(() => { selCount = c; }); }),
+			filteredCount.subscribe((c) => { untrack(() => { filCount = c; }); }),
 			selectedArticles.subscribe((a) => {
-				contextArticles = a.slice(0, 10).map((ar) => ({ ID: ar.ID, title: ar.title }));
+				untrack(() => {
+					contextArticles = a.slice(0, 10).map((ar) => ({ ID: ar.ID, title: ar.title }));
+				});
 			}),
 		];
 		return () => unsubs.forEach((u) => u());

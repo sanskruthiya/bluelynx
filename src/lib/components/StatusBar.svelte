@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { filteredCount, selectedCount, articles, searchQuery, searchMode, columnFilters } from '$lib/stores';
 
 	let total = $state(0);
@@ -10,12 +11,12 @@
 
 	$effect(() => {
 		const unsubs = [
-			articles.subscribe((a) => (total = a.length)),
-			filteredCount.subscribe((c) => (filtered = c)),
-			selectedCount.subscribe((c) => (selected = c)),
-			searchQuery.subscribe((q) => (query = q)),
-			searchMode.subscribe((m) => (mode = m)),
-			columnFilters.subscribe((f) => (filterCount = f.length)),
+			articles.subscribe((a) => { untrack(() => { total = a.length; }); }),
+			filteredCount.subscribe((c) => { untrack(() => { filtered = c; }); }),
+			selectedCount.subscribe((c) => { untrack(() => { selected = c; }); }),
+			searchQuery.subscribe((q) => { untrack(() => { query = q; }); }),
+			searchMode.subscribe((m) => { untrack(() => { mode = m; }); }),
+			columnFilters.subscribe((f) => { untrack(() => { filterCount = f.length; }); }),
 		];
 		return () => unsubs.forEach((u) => u());
 	});
