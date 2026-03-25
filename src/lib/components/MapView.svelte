@@ -8,7 +8,6 @@
 		selectionTool,
 		mapMode,
 		focusedArticleId,
-		loadingStatus,
 	} from '$lib/stores';
 	import type { Article, SelectionTool, MapMode } from '$lib/types';
 
@@ -42,10 +41,8 @@
 		const unsubs = [
 			filteredArticles.subscribe((a) => {
 				untrack(() => {
-					const isNewLoad = data.length === 0 && a.length > 0;
 					data = a;
 					recomputeBounds();
-					if (isNewLoad) pendingLoadingClear = true;
 					scheduleRender();
 				});
 			}),
@@ -137,9 +134,6 @@
 		};
 	}
 
-	// Track whether we need to signal render completion to clear loading status
-	let pendingLoadingClear = false;
-
 	function render() {
 		if (!canvas) return;
 		const ctx = canvas.getContext('2d');
@@ -195,11 +189,6 @@
 			ctx.setLineDash([]);
 		}
 
-		// Signal that rendering is complete (clears loading overlay)
-		if (pendingLoadingClear) {
-			pendingLoadingClear = false;
-			loadingStatus.set({ active: false, message: '' });
-		}
 	}
 
 	function renderScatter(ctx: CanvasRenderingContext2D, w: number, h: number, dpr: number) {

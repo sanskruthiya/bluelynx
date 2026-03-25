@@ -116,7 +116,13 @@
 				setStatus(`🎨 ${count} 件をマップに描画中...`, 85);
 				articles.set(result.articles);
 				columnMetas.set(result.columnMetas);
-				// clearStatus will be called by MapView after first render
+				// Double rAF: 1st frame = MapView schedules render,
+				// 2nd frame = render executes, 3rd frame = confirm done
+				requestAnimationFrame(() => {
+					requestAnimationFrame(() => {
+						clearStatus();
+					});
+				});
 			});
 		} else {
 			clearStatus();
