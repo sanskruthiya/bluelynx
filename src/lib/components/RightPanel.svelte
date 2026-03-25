@@ -69,13 +69,43 @@
 		}
 	}
 
+	/** Post a warning/error notice inline in the chat */
+	function postNotice(content: string) {
+		const notice: ChatMessage = {
+			id: crypto.randomUUID(),
+			role: 'assistant',
+			content,
+			timestamp: new Date(),
+		};
+		chatMessages.update((m) => [...m, notice]);
+	}
+
+	/** Check if any articles are available as context */
+	function hasArticleContext(): boolean {
+		let count = 0;
+		const unsub1 = selectedArticles.subscribe((a) => { count = a.length; });
+		unsub1();
+		if (count > 0) return true;
+		const unsub2 = filteredArticles.subscribe((a) => { count = a.length; });
+		unsub2();
+		return count > 0;
+	}
+
 	async function sendMessage() {
 		const text = userInput.trim();
 		if (!text || loading) return;
 
+		// Validate: API key
 		const key = keys[provider];
 		if (!key) {
-			alert(`${provider === 'gemini' ? 'Gemini' : 'Claude'} のAPIキーが設定されていません。ヘッダーの「API設定」から設定してください。`);
+			const name = provider === 'gemini' ? 'Gemini' : 'Claude';
+			postNotice(`⚠️ ${name} のAPIキーが設定されていません。\nヘッダーの「⚙ API設定」から設定してください。`);
+			return;
+		}
+
+		// Validate: article context
+		if (!hasArticleContext()) {
+			postNotice('⚠️ 分析対象の文献がありません。\nTSVファイルを読み込むか、文献を選択してからご質問ください。');
 			return;
 		}
 
@@ -109,15 +139,14 @@
 				await callClaudeAPI(key, allMessages, assistantMsg.id);
 			}
 		} catch (err) {
-			const errMsg: ChatMessage = {
-				id: crypto.randomUUID(),
-				role: 'assistant',
-				content: `エラーが発生しました: ${(err as Error).message}`,
-				timestamp: new Date(),
-			};
+			const message = (err as Error).message || '不明なエラー';
+			const isNetwork = message.includes('Failed to fetch') || message.includes('NetworkError');
+			const display = isNetwork
+				? '❌ ネットワークエラー: インターネット接続を確認してください。'
+				: `❌ エラーが発生しました: ${message}`;
 			chatMessages.update((m) => {
 				const filtered = m.filter((msg) => msg.content !== '');
-				return [...filtered, errMsg];
+				return [...filtered, { id: crypto.randomUUID(), role: 'assistant' as const, content: display, timestamp: new Date() }];
 			});
 		} finally {
 			isAiLoading.set(false);
@@ -419,11 +448,12 @@
 			</div>
 		{/if}
 		{#each messages.filter((m) => m.role !== 'system') as msg}
-			<div class="rounded-lg p-3 text-sm {msg.role === 'user' ? 'bg-blue-900/30 border border-blue-800/50' : 'bg-slate-800/50 border border-slate-700/50'}">
-				<div class="mb-1 text-xs font-medium {msg.role === 'user' ? 'text-blue-400' : 'text-cyan-400'}">
-					{msg.role === 'user' ? 'あなた' : 'AI'}
+			{@const isNotice = msg.role === 'assistant' && (msg.content.startsWith('⚠️') || msg.content.startsWith('❌'))}
+			<div class="rounded-lg p-3 text-sm {msg.role === 'user' ? 'bg-blue-900/30 border border-blue-800/50' : isNotice ? 'bg-amber-900/20 border border-amber-700/40' : 'bg-slate-800/50 border border-slate-700/50'}">
+				<div class="mb-1 text-xs font-medium {msg.role === 'user' ? 'text-blue-400' : isNotice ? 'text-amber-400' : 'text-cyan-400'}">
+					{msg.role === 'user' ? 'あなた' : isNotice ? 'お知らせ' : 'AI'}
 				</div>
-				<div class="whitespace-pre-wrap text-slate-200 leading-relaxed">
+				<div class="whitespace-pre-wrap {isNotice ? 'text-amber-200' : 'text-slate-200'} leading-relaxed">
 					{msg.content}
 					{#if loading && msg.role === 'assistant' && msg === messages[messages.length - 1] && !msg.content}
 						<span class="inline-block animate-pulse text-slate-500">思考中...</span>
