@@ -5,7 +5,7 @@
 </script>
 
 <svelte:head>
-	<title>VnxLynx - 文献マップビューア</title>
+	<title>LitLynx - 文献マップビューア</title>
 </svelte:head>
 
 {@render children()}

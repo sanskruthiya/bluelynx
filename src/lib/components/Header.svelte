@@ -27,7 +27,7 @@
 	// Load API keys from localStorage on mount
 	$effect(() => {
 		if (typeof window !== 'undefined') {
-			const stored = localStorage.getItem('vnxlynx-api-keys');
+			const stored = localStorage.getItem('litlynx-api-keys');
 			if (stored) {
 				try {
 					const keys = JSON.parse(stored);
@@ -45,7 +45,7 @@
 		if (claudeKey.trim()) keys.claude = claudeKey.trim();
 		apiKeys.set(keys);
 		if (typeof window !== 'undefined') {
-			localStorage.setItem('vnxlynx-api-keys', JSON.stringify(keys));
+			localStorage.setItem('litlynx-api-keys', JSON.stringify(keys));
 		}
 		showSettings = false;
 	}
@@ -148,7 +148,7 @@
 	ondragover={(e) => e.preventDefault()}
 	ondrop={handleDrop}
 >
-	<h1 class="text-lg font-bold text-cyan-400 mr-2">VnxLynx</h1>
+	<h1 class="text-lg font-bold text-cyan-400 mr-2">LitLynx</h1>
 
 	<input
 		bind:this={fileInput}

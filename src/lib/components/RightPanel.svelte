@@ -203,7 +203,7 @@
 		const recentPrior = prior.slice(-(MAX_HISTORY_TURNS * 2));
 
 		return {
-			system: `あなたは文献調査の専門家です。ユーザーの質問に対して、ユーザーが提供した文献データに基づき日本語で回答してください。\n\n${context}`,
+			system: `あなたは文献調査の専門家です。ユーザーの質問に対して、ユーザーが提供した文献データに基づき日本語で簡潔に回答してください。\n\n${context}`,
 			messages: [...recentPrior, { role: 'user' as const, content: userText }],
 		};
 	}
@@ -360,7 +360,7 @@
 		const now = new Date().toISOString().replace(/[:.]/g, '-');
 		const model = AI_PROVIDERS.flatMap((p) => p.models).find((m) => m.id === modelId);
 
-		let md = `# VnxLynx チャット履歴\n\n`;
+		let md = `# LitLynx チャット履歴\n\n`;
 		md += `- **日時**: ${new Date().toLocaleString('ja-JP')}\n`;
 		md += `- **モデル**: ${model?.name ?? modelId}\n`;
 		md += `- **コンテキスト文献数**: ${contextArticles.length}件\n`;
@@ -388,7 +388,7 @@
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement('a');
 		a.href = url;
-		a.download = `vnxlynx-chat-${now}.md`;
+		a.download = `litlynx-chat-${now}.md`;
 		a.click();
 		URL.revokeObjectURL(url);
 	}
