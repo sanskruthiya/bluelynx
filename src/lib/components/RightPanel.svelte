@@ -182,7 +182,7 @@
 				.filter(([k]) => !['ID', 'x', 'y', 'title', 'abstract'].includes(k))
 				.map(([k, v]) => `${k}: ${String(v).slice(0, CONTEXT_LIMITS.otherFieldMaxChars)}`)
 				.join(' | ');
-			return `[${i + 1}] ${title}\n    ${abstract}${extras ? '\n    ' + extras : ''}`;
+			return `[${a.ID}] ${title}\n    ${abstract}${extras ? '\n    ' + extras : ''}`;
 		});
 
 		return `以下は分析対象の文献一覧です（${arts.length}件）:\n\n${lines.join('\n\n')}`;
