@@ -358,12 +358,6 @@
 		URL.revokeObjectURL(url);
 	}
 
-	function handleKeyDown(e: KeyboardEvent) {
-		if (e.key === 'Enter' && !e.shiftKey) {
-			e.preventDefault();
-			sendMessage();
-		}
-	}
 </script>
 
 <div class="flex h-full flex-col border-l border-slate-700 bg-slate-900">
@@ -447,7 +441,6 @@
 				rows="2"
 				placeholder="質問を入力..."
 				bind:value={userInput}
-				onkeydown={handleKeyDown}
 				disabled={loading}
 			></textarea>
 			<button
