@@ -77,31 +77,62 @@ export function parseTSV(tsvContent: string): ParseResult {
 	return { articles, columnMetas, errors };
 }
 
+/** Max unique values to track for string filter UI */
+const MAX_UNIQUE_FOR_FILTER = 200;
+
 function buildColumnMetas(headers: string[], articles: Article[]): ColumnMeta[] {
 	return headers
 		.filter((h) => h !== 'x' && h !== 'y')
 		.map((name) => {
 			const isRequired = (REQUIRED_COLUMNS as readonly string[]).includes(name);
-			const values = articles.map((a) => a[name]);
-			const isNumeric = values.every((v) => typeof v === 'number');
+
+			// Sample first value to determine type
+			const firstVal = articles.length > 0 ? articles[0][name] : '';
+			const isNumeric = typeof firstVal === 'number';
 
 			if (isNumeric) {
-				const nums = values as number[];
+				let min = Infinity;
+				let max = -Infinity;
+				for (let i = 0; i < articles.length; i++) {
+					const v = articles[i][name] as number;
+					if (v < min) min = v;
+					if (v > max) max = v;
+				}
 				return {
 					name,
 					type: 'number' as const,
 					isRequired,
-					min: Math.min(...nums),
-					max: Math.max(...nums),
+					min,
+					max,
 				};
 			}
 
-			const uniqueValues = [...new Set(values.map(String))].sort();
+			// For string columns, only collect unique values if cardinality is low enough for filtering
+			// Skip high-cardinality columns like title, abstract
+			if (isRequired && (name === 'title' || name === 'abstract')) {
+				return {
+					name,
+					type: 'string' as const,
+					isRequired,
+					uniqueValues: undefined,
+				};
+			}
+
+			const uniqueSet = new Set<string>();
+			let tooMany = false;
+			for (let i = 0; i < articles.length; i++) {
+				uniqueSet.add(String(articles[i][name] ?? ''));
+				if (uniqueSet.size > MAX_UNIQUE_FOR_FILTER) {
+					tooMany = true;
+					break;
+				}
+			}
+
 			return {
 				name,
 				type: 'string' as const,
 				isRequired,
-				uniqueValues,
+				uniqueValues: tooMany ? undefined : [...uniqueSet].sort(),
 			};
 		});
 }

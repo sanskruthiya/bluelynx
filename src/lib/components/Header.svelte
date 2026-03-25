@@ -1,11 +1,14 @@
 <script lang="ts">
-	import { FileUp, Settings, Map, Flame } from 'lucide-svelte';
+	import { FileUp, Settings, Map, Flame, Loader2 } from 'lucide-svelte';
 	import { articles, columnMetas, mapMode, apiKeys } from '$lib/stores';
 	import { parseTSV } from '$lib/tsv-parser';
+	import type { ParseResult } from '$lib/tsv-parser';
 	import type { MapMode } from '$lib/types';
 
 	let showSettings = $state(false);
 	let parseErrors = $state<string[]>([]);
+	let isLoading = $state(false);
+	let loadingMessage = $state('');
 	let fileInput: HTMLInputElement;
 	let geminiKey = $state('');
 	let claudeKey = $state('');
@@ -51,17 +54,53 @@
 	}
 
 	function readFile(file: File) {
+		isLoading = true;
+		loadingMessage = `${file.name} を読み込み中... (${(file.size / 1024 / 1024).toFixed(1)} MB)`;
+		parseErrors = [];
+
 		const reader = new FileReader();
 		reader.onload = (e) => {
 			const content = e.target?.result as string;
-			const result = parseTSV(content);
-			parseErrors = result.errors;
-			if (result.articles.length > 0) {
-				articles.set(result.articles);
-				columnMetas.set(result.columnMetas);
+			loadingMessage = 'パース中...';
+
+			// Use Web Worker for large files (>5MB), sync for small files
+			if (content.length > 5_000_000) {
+				const worker = new Worker(
+					new URL('$lib/tsv-worker.ts', import.meta.url),
+					{ type: 'module' },
+				);
+				worker.onmessage = (ev: MessageEvent<ParseResult>) => {
+					handleParseResult(ev.data);
+					worker.terminate();
+				};
+				worker.onerror = (err) => {
+					parseErrors = [`Worker error: ${err.message}`];
+					isLoading = false;
+					worker.terminate();
+				};
+				worker.postMessage(content);
+			} else {
+				// Small file: parse synchronously
+				const result = parseTSV(content);
+				handleParseResult(result);
 			}
 		};
 		reader.readAsText(file, 'UTF-8');
+	}
+
+	function handleParseResult(result: ParseResult) {
+		parseErrors = result.errors.slice(0, 20);
+		if (result.articles.length > 0) {
+			loadingMessage = `${result.articles.length.toLocaleString()} 件のデータを描画中...`;
+			// Defer store update to next frame so loading message renders
+			requestAnimationFrame(() => {
+				articles.set(result.articles);
+				columnMetas.set(result.columnMetas);
+				isLoading = false;
+			});
+		} else {
+			isLoading = false;
+		}
 	}
 
 	let currentMapMode = $state<MapMode>('scatter');
@@ -94,14 +133,22 @@
 	/>
 
 	<button
-		class="flex items-center gap-1.5 rounded bg-blue-600 px-3 py-1.5 text-sm font-medium hover:bg-blue-500 transition-colors"
+		class="flex items-center gap-1.5 rounded bg-blue-600 px-3 py-1.5 text-sm font-medium hover:bg-blue-500 transition-colors disabled:opacity-50"
 		onclick={() => fileInput.click()}
+		disabled={isLoading}
 	>
-		<FileUp size={16} />
-		TSVファイル読み込み
+		{#if isLoading}
+			<Loader2 size={16} class="animate-spin" />
+			読み込み中...
+		{:else}
+			<FileUp size={16} />
+			TSVファイル読み込み
+		{/if}
 	</button>
 
-	{#if articleCount > 0}
+	{#if isLoading}
+		<span class="text-xs text-yellow-400 animate-pulse">{loadingMessage}</span>
+	{:else if articleCount > 0}
 		<span class="text-xs text-slate-400">{articleCount.toLocaleString()} 件読み込み済み</span>
 	{/if}
 

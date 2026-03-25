@@ -30,15 +30,41 @@
 	let isPanning = $state(false);
 	let panStart = $state({ x: 0, y: 0 });
 
+	// Cached data bounds — recomputed only when data changes
+	let cachedBounds = { minX: -1, maxX: 1, minY: -1, maxY: 1 };
+
+	// Pre-computed screen positions (Float32Array for cache-friendliness)
+	let screenXY: Float32Array = new Float32Array(0);
+
 	$effect(() => {
 		const unsubs = [
-			filteredArticles.subscribe((a) => { data = a; scheduleRender(); }),
+			filteredArticles.subscribe((a) => {
+				data = a;
+				recomputeBounds();
+				scheduleRender();
+			}),
 			selectedArticleIds.subscribe((s) => { selected = s; scheduleRender(); }),
 			selectionTool.subscribe((t) => { currentTool = t; }),
 			mapMode.subscribe((m) => { currentMode = m; scheduleRender(); }),
 		];
 		return () => unsubs.forEach((u) => u());
 	});
+
+	function recomputeBounds() {
+		if (data.length === 0) {
+			cachedBounds = { minX: -1, maxX: 1, minY: -1, maxY: 1 };
+			return;
+		}
+		let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+		for (let i = 0; i < data.length; i++) {
+			const x = data[i].x, y = data[i].y;
+			if (x < minX) minX = x;
+			if (x > maxX) maxX = x;
+			if (y < minY) minY = y;
+			if (y > maxY) maxY = y;
+		}
+		cachedBounds = { minX, maxX, minY, maxY };
+	}
 
 	let renderQueued = false;
 	function scheduleRender() {
@@ -61,16 +87,16 @@
 		return () => resizeObserver.disconnect();
 	});
 
-	function worldToScreen(wx: number, wy: number): { x: number; y: number } {
-		if (!canvas) return { x: 0, y: 0 };
+	/** Compute transform parameters once per frame */
+	function getTransform() {
 		const w = canvas.width;
 		const h = canvas.height;
+		const dpr = window.devicePixelRatio;
+		const padding = 40 * dpr;
 
-		// Compute data bounds
-		const bounds = getDataBounds();
-		const dataW = bounds.maxX - bounds.minX || 1;
-		const dataH = bounds.maxY - bounds.minY || 1;
-		const padding = 40 * window.devicePixelRatio;
+		const b = cachedBounds;
+		const dataW = b.maxX - b.minX || 1;
+		const dataH = b.maxY - b.minY || 1;
 
 		const scaleX = (w - 2 * padding) / dataW;
 		const scaleY = (h - 2 * padding) / dataH;
@@ -78,50 +104,31 @@
 
 		const cx = w / 2 + viewOffset.x;
 		const cy = h / 2 + viewOffset.y;
-		const dataCx = (bounds.minX + bounds.maxX) / 2;
-		const dataCy = (bounds.minY + bounds.maxY) / 2;
+		const dataCx = (b.minX + b.maxX) / 2;
+		const dataCy = (b.minY + b.maxY) / 2;
 
-		return {
-			x: cx + (wx - dataCx) * scale,
-			y: cy - (wy - dataCy) * scale,
-		};
+		return { scale, cx, cy, dataCx, dataCy };
 	}
 
-	function screenToWorld(sx: number, sy: number): { x: number; y: number } {
-		if (!canvas) return { x: 0, y: 0 };
-		const w = canvas.width;
-		const h = canvas.height;
-
-		const bounds = getDataBounds();
-		const dataW = bounds.maxX - bounds.minX || 1;
-		const dataH = bounds.maxY - bounds.minY || 1;
-		const padding = 40 * window.devicePixelRatio;
-
-		const scaleX = (w - 2 * padding) / dataW;
-		const scaleY = (h - 2 * padding) / dataH;
-		const scale = Math.min(scaleX, scaleY) * viewScale;
-
-		const cx = w / 2 + viewOffset.x;
-		const cy = h / 2 + viewOffset.y;
-		const dataCx = (bounds.minX + bounds.maxX) / 2;
-		const dataCy = (bounds.minY + bounds.maxY) / 2;
-
-		return {
-			x: (sx - cx) / scale + dataCx,
-			y: dataCy - (sy - cy) / scale,
-		};
-	}
-
-	function getDataBounds() {
-		if (data.length === 0) return { minX: -1, maxX: 1, minY: -1, maxY: 1 };
-		let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-		for (const a of data) {
-			if (a.x < minX) minX = a.x;
-			if (a.x > maxX) maxX = a.x;
-			if (a.y < minY) minY = a.y;
-			if (a.y > maxY) maxY = a.y;
+	/** Batch-compute all screen positions into Float32Array */
+	function computeScreenPositions(t: ReturnType<typeof getTransform>) {
+		const len = data.length;
+		if (screenXY.length !== len * 2) {
+			screenXY = new Float32Array(len * 2);
 		}
-		return { minX, maxX, minY, maxY };
+		for (let i = 0; i < len; i++) {
+			screenXY[i * 2] = t.cx + (data[i].x - t.dataCx) * t.scale;
+			screenXY[i * 2 + 1] = t.cy - (data[i].y - t.dataCy) * t.scale;
+		}
+	}
+
+	function worldToScreenSingle(wx: number, wy: number): { x: number; y: number } {
+		if (!canvas) return { x: 0, y: 0 };
+		const t = getTransform();
+		return {
+			x: t.cx + (wx - t.dataCx) * t.scale,
+			y: t.cy - (wy - t.dataCy) * t.scale,
+		};
 	}
 
 	function render() {
@@ -141,6 +148,9 @@
 			ctx.fillText('TSVファイルを読み込んでください', w / 2, h / 2);
 			return;
 		}
+
+		const t = getTransform();
+		computeScreenPositions(t);
 
 		if (currentMode === 'heatmap') {
 			renderHeatmap(ctx, w, h, dpr);
@@ -163,12 +173,12 @@
 				ctx.fillStyle = 'rgba(59, 130, 246, 0.1)';
 				ctx.fillRect(x, y, rw, rh);
 			} else if (currentTool === 'circle') {
-				const cx = ((dragStart.x + dragEnd.x) / 2) * dpr;
-				const cy = ((dragStart.y + dragEnd.y) / 2) * dpr;
+				const ecx = ((dragStart.x + dragEnd.x) / 2) * dpr;
+				const ecy = ((dragStart.y + dragEnd.y) / 2) * dpr;
 				const rx = (Math.abs(dragEnd.x - dragStart.x) / 2) * dpr;
 				const ry = (Math.abs(dragEnd.y - dragStart.y) / 2) * dpr;
 				ctx.beginPath();
-				ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+				ctx.ellipse(ecx, ecy, rx, ry, 0, 0, Math.PI * 2);
 				ctx.stroke();
 				ctx.fillStyle = 'rgba(59, 130, 246, 0.1)';
 				ctx.fill();
@@ -179,20 +189,45 @@
 
 	function renderScatter(ctx: CanvasRenderingContext2D, w: number, h: number, dpr: number) {
 		const hasSelection = selected.size > 0;
-		const radius = 3 * dpr;
+		const radius = Math.max(1.5, Math.min(3, 500 / Math.sqrt(data.length))) * dpr;
+		const len = data.length;
 
-		for (const article of data) {
-			const { x, y } = worldToScreen(article.x, article.y);
-			const isSelected = selected.has(article.ID);
-
-			if (hasSelection && !isSelected) {
-				ctx.fillStyle = 'rgba(100, 116, 139, 0.3)';
-			} else {
-				ctx.fillStyle = '#3b82f6';
-			}
-
+		// Batch draw: unselected/dimmed first, then selected on top
+		if (hasSelection) {
+			// Dim unselected
+			ctx.fillStyle = 'rgba(100, 116, 139, 0.2)';
 			ctx.beginPath();
-			ctx.arc(x, y, isSelected ? radius * 1.4 : radius, 0, Math.PI * 2);
+			for (let i = 0; i < len; i++) {
+				if (selected.has(data[i].ID)) continue;
+				const sx = screenXY[i * 2];
+				const sy = screenXY[i * 2 + 1];
+				ctx.moveTo(sx + radius, sy);
+				ctx.arc(sx, sy, radius, 0, Math.PI * 2);
+			}
+			ctx.fill();
+
+			// Selected
+			ctx.fillStyle = '#3b82f6';
+			const selRadius = radius * 1.4;
+			ctx.beginPath();
+			for (let i = 0; i < len; i++) {
+				if (!selected.has(data[i].ID)) continue;
+				const sx = screenXY[i * 2];
+				const sy = screenXY[i * 2 + 1];
+				ctx.moveTo(sx + selRadius, sy);
+				ctx.arc(sx, sy, selRadius, 0, Math.PI * 2);
+			}
+			ctx.fill();
+		} else {
+			// All points: single color, single path
+			ctx.fillStyle = '#3b82f6';
+			ctx.beginPath();
+			for (let i = 0; i < len; i++) {
+				const sx = screenXY[i * 2];
+				const sy = screenXY[i * 2 + 1];
+				ctx.moveTo(sx + radius, sy);
+				ctx.arc(sx, sy, radius, 0, Math.PI * 2);
+			}
 			ctx.fill();
 		}
 	}
@@ -202,12 +237,14 @@
 		const cols = Math.ceil(w / cellSize);
 		const rows = Math.ceil(h / cellSize);
 		const grid = new Float32Array(cols * rows);
+		const len = data.length;
 
 		let maxDensity = 0;
-		for (const article of data) {
-			const { x, y } = worldToScreen(article.x, article.y);
-			const col = Math.floor(x / cellSize);
-			const row = Math.floor(y / cellSize);
+		for (let i = 0; i < len; i++) {
+			const sx = screenXY[i * 2];
+			const sy = screenXY[i * 2 + 1];
+			const col = Math.floor(sx / cellSize);
+			const row = Math.floor(sy / cellSize);
 			// Spread to nearby cells
 			for (let dr = -2; dr <= 2; dr++) {
 				for (let dc = -2; dc <= 2; dc++) {
@@ -250,6 +287,9 @@
 		}
 	}
 
+	// Throttled hover search
+	let hoverTimer: ReturnType<typeof setTimeout> | null = null;
+
 	function handleMouseMove(e: MouseEvent) {
 		if (isPanning) {
 			viewOffset = {
@@ -266,28 +306,39 @@
 			return;
 		}
 
-		// Tooltip on hover
+		// Throttled tooltip on hover (every 50ms)
 		if (currentMode === 'scatter' && data.length > 0) {
-			const dpr = window.devicePixelRatio;
-			const mx = e.offsetX * dpr;
-			const my = e.offsetY * dpr;
-			let found: Article | null = null;
-			let minDist = 10 * dpr;
+			if (hoverTimer) return;
+			const ox = e.offsetX;
+			const oy = e.offsetY;
+			hoverTimer = setTimeout(() => {
+				hoverTimer = null;
+				findTooltipAt(ox, oy);
+			}, 50);
+		}
+	}
 
-			for (const article of data) {
-				const { x, y } = worldToScreen(article.x, article.y);
-				const dist = Math.sqrt((x - mx) ** 2 + (y - my) ** 2);
-				if (dist < minDist) {
-					minDist = dist;
-					found = article;
-				}
-			}
+	function findTooltipAt(ox: number, oy: number) {
+		const dpr = window.devicePixelRatio;
+		const mx = ox * dpr;
+		const my = oy * dpr;
+		let foundIdx = -1;
+		let minDistSq = (10 * dpr) ** 2;
 
-			if (found) {
-				tooltip = { x: e.offsetX, y: e.offsetY, title: found.title };
-			} else {
-				tooltip = null;
+		for (let i = 0; i < data.length; i++) {
+			const dx = screenXY[i * 2] - mx;
+			const dy = screenXY[i * 2 + 1] - my;
+			const distSq = dx * dx + dy * dy;
+			if (distSq < minDistSq) {
+				minDistSq = distSq;
+				foundIdx = i;
 			}
+		}
+
+		if (foundIdx >= 0) {
+			tooltip = { x: ox, y: oy, title: data[foundIdx].title };
+		} else {
+			tooltip = null;
 		}
 	}
 
@@ -324,10 +375,11 @@
 		const y2 = Math.max(dragStart.y, dragEnd.y) * dpr;
 
 		if (currentTool === 'rectangle') {
-			for (const a of data) {
-				const { x, y } = worldToScreen(a.x, a.y);
-				if (x >= x1 && x <= x2 && y >= y1 && y <= y2) {
-					ids.add(a.ID);
+			for (let i = 0; i < data.length; i++) {
+				const sx = screenXY[i * 2];
+				const sy = screenXY[i * 2 + 1];
+				if (sx >= x1 && sx <= x2 && sy >= y1 && sy <= y2) {
+					ids.add(data[i].ID);
 				}
 			}
 		} else if (currentTool === 'circle') {
@@ -335,12 +387,13 @@
 			const cy = (y1 + y2) / 2;
 			const rx = (x2 - x1) / 2;
 			const ry = (y2 - y1) / 2;
-			for (const a of data) {
-				const { x, y } = worldToScreen(a.x, a.y);
-				const dx = (x - cx) / rx;
-				const dy = (y - cy) / ry;
-				if (dx * dx + dy * dy <= 1) {
-					ids.add(a.ID);
+			if (rx > 0 && ry > 0) {
+				for (let i = 0; i < data.length; i++) {
+					const dx = (screenXY[i * 2] - cx) / rx;
+					const dy = (screenXY[i * 2 + 1] - cy) / ry;
+					if (dx * dx + dy * dy <= 1) {
+						ids.add(data[i].ID);
+					}
 				}
 			}
 		}
@@ -357,20 +410,21 @@
 		const dpr = window.devicePixelRatio;
 		const mx = e.offsetX * dpr;
 		const my = e.offsetY * dpr;
-		let closest: Article | null = null;
-		let minDist = 10 * dpr;
+		let closestIdx = -1;
+		let minDistSq = (10 * dpr) ** 2;
 
-		for (const a of data) {
-			const { x, y } = worldToScreen(a.x, a.y);
-			const dist = Math.sqrt((x - mx) ** 2 + (y - my) ** 2);
-			if (dist < minDist) {
-				minDist = dist;
-				closest = a;
+		for (let i = 0; i < data.length; i++) {
+			const dx = screenXY[i * 2] - mx;
+			const dy = screenXY[i * 2 + 1] - my;
+			const distSq = dx * dx + dy * dy;
+			if (distSq < minDistSq) {
+				minDistSq = distSq;
+				closestIdx = i;
 			}
 		}
 
-		if (closest) {
-			focusedArticleId.set(closest.ID);
+		if (closestIdx >= 0) {
+			focusedArticleId.set(data[closestIdx].ID);
 		}
 	}
 </script>
