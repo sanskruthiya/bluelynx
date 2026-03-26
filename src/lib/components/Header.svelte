@@ -111,7 +111,7 @@
 			setStatus(`🗂️ ${count} 件のデータを準備中...`, 70);
 			// Defer store update to next frame so loading message renders
 			requestAnimationFrame(() => {
-				setStatus(`� ${count} 件をマップに描画中...`, 85);
+				setStatus(`🌐 ${count} 件をマップに描画中...`);
 				articles.set(result.articles);
 				columnMetas.set(result.columnMetas);
 				// Double rAF: 1st frame = MapView schedules render,
