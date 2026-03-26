@@ -25,6 +25,9 @@
 	let dragStart = $state<{ x: number; y: number } | null>(null);
 	let dragEnd = $state<{ x: number; y: number } | null>(null);
 
+	// Persisted selection shape (shown after drag completes)
+	let persistedSelection = $state<{ tool: SelectionTool; start: { x: number; y: number }; end: { x: number; y: number } } | null>(null);
+
 	// View transform
 	let viewOffset = $state({ x: 0, y: 0 });
 	let viewScale = $state(1);
@@ -46,7 +49,7 @@
 					scheduleRender();
 				});
 			}),
-			selectedArticleIds.subscribe((s) => { untrack(() => { selected = s; scheduleRender(); }); }),
+			selectedArticleIds.subscribe((s) => { untrack(() => { selected = s; if (s.size === 0) persistedSelection = null; scheduleRender(); }); }),
 			selectionTool.subscribe((t) => { currentTool = t; }),
 			mapMode.subscribe((m) => { untrack(() => { currentMode = m; scheduleRender(); }); }),
 		];
@@ -161,34 +164,48 @@
 			renderScatter(ctx, w, h, dpr);
 		}
 
-		// Draw selection rect/circle
+		// Draw active drag shape
 		if (isDragging && dragStart && dragEnd) {
-			ctx.strokeStyle = '#3b82f6';
-			ctx.lineWidth = 2 * dpr;
-			ctx.setLineDash([6 * dpr, 4 * dpr]);
-
-			if (currentTool === 'rectangle') {
-				const x = Math.min(dragStart.x, dragEnd.x) * dpr;
-				const y = Math.min(dragStart.y, dragEnd.y) * dpr;
-				const rw = Math.abs(dragEnd.x - dragStart.x) * dpr;
-				const rh = Math.abs(dragEnd.y - dragStart.y) * dpr;
-				ctx.strokeRect(x, y, rw, rh);
-				ctx.fillStyle = 'rgba(59, 130, 246, 0.1)';
-				ctx.fillRect(x, y, rw, rh);
-			} else if (currentTool === 'circle') {
-				const ecx = ((dragStart.x + dragEnd.x) / 2) * dpr;
-				const ecy = ((dragStart.y + dragEnd.y) / 2) * dpr;
-				const rx = (Math.abs(dragEnd.x - dragStart.x) / 2) * dpr;
-				const ry = (Math.abs(dragEnd.y - dragStart.y) / 2) * dpr;
-				ctx.beginPath();
-				ctx.ellipse(ecx, ecy, rx, ry, 0, 0, Math.PI * 2);
-				ctx.stroke();
-				ctx.fillStyle = 'rgba(59, 130, 246, 0.1)';
-				ctx.fill();
-			}
-			ctx.setLineDash([]);
+			drawSelectionShape(ctx, dpr, currentTool, dragStart, dragEnd);
+		}
+		// Draw persisted selection shape
+		else if (persistedSelection) {
+			drawSelectionShape(ctx, dpr, persistedSelection.tool, persistedSelection.start, persistedSelection.end);
 		}
 
+	}
+
+	function drawSelectionShape(
+		ctx: CanvasRenderingContext2D,
+		dpr: number,
+		tool: SelectionTool,
+		start: { x: number; y: number },
+		end: { x: number; y: number },
+	) {
+		ctx.strokeStyle = '#3b82f6';
+		ctx.lineWidth = 2 * dpr;
+		ctx.setLineDash([6 * dpr, 4 * dpr]);
+
+		if (tool === 'rectangle') {
+			const x = Math.min(start.x, end.x) * dpr;
+			const y = Math.min(start.y, end.y) * dpr;
+			const rw = Math.abs(end.x - start.x) * dpr;
+			const rh = Math.abs(end.y - start.y) * dpr;
+			ctx.strokeRect(x, y, rw, rh);
+			ctx.fillStyle = 'rgba(59, 130, 246, 0.1)';
+			ctx.fillRect(x, y, rw, rh);
+		} else if (tool === 'circle') {
+			const ecx = ((start.x + end.x) / 2) * dpr;
+			const ecy = ((start.y + end.y) / 2) * dpr;
+			const rx = (Math.abs(end.x - start.x) / 2) * dpr;
+			const ry = (Math.abs(end.y - start.y) / 2) * dpr;
+			ctx.beginPath();
+			ctx.ellipse(ecx, ecy, rx, ry, 0, 0, Math.PI * 2);
+			ctx.stroke();
+			ctx.fillStyle = 'rgba(59, 130, 246, 0.1)';
+			ctx.fill();
+		}
+		ctx.setLineDash([]);
 	}
 
 	function renderScatter(ctx: CanvasRenderingContext2D, w: number, h: number, dpr: number) {
@@ -285,6 +302,7 @@
 			isPanning = true;
 			panStart = { x: e.clientX - viewOffset.x, y: e.clientY - viewOffset.y };
 		} else {
+			persistedSelection = null;
 			isDragging = true;
 			dragStart = { x: e.offsetX, y: e.offsetY };
 			dragEnd = { x: e.offsetX, y: e.offsetY };
@@ -353,6 +371,7 @@
 		}
 
 		if (isDragging && dragStart && dragEnd) {
+			persistedSelection = { tool: currentTool, start: { ...dragStart }, end: { ...dragEnd } };
 			selectArticlesInRegion();
 			isDragging = false;
 			dragStart = null;
