@@ -209,11 +209,11 @@
 	</button>
 
 	<button
-		class="flex items-center justify-center rounded border border-slate-600 w-7 h-7 text-slate-300 hover:bg-slate-700 transition-colors"
+		class="flex items-center gap-1 rounded border border-slate-600 px-2 py-1.5 text-xs text-slate-300 hover:bg-slate-700 transition-colors"
 		onclick={() => showHelp = true}
-		title="使い方"
 	>
 		<HelpCircle size={14} />
+		使い方
 	</button>
 </header>
 
@@ -335,7 +335,7 @@
 						<li>右パネルで選択/フィルタした文献についてAIに質問</li>
 						<li>Gemini / Claude を切替可能（要APIキー）</li>
 						<li>送信ボタンで送信（Enterは改行）</li>
-						<li>コンテキストは最大50件、履歴は直近10往復</li>
+						<li>チャット対象となる文献数は最大50件、それ以上が選択されている場合はサンプリングされます。また、チャット履歴は直近10往復までを参照します。</li>
 					</ul>
 				</section>
 
