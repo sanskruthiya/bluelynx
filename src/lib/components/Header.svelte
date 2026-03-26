@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { FileUp, Settings, Map, Flame, Loader2 } from 'lucide-svelte';
+	import { FileUp, Settings, Map, Flame, Loader2, HelpCircle } from 'lucide-svelte';
 	import { articles, columnMetas, mapMode, apiKeys, loadingStatus } from '$lib/stores';
 	import { parseTSV } from '$lib/tsv-parser';
 	import type { ParseResult } from '$lib/tsv-parser';
 	import type { MapMode } from '$lib/types';
 
 	let showSettings = $state(false);
+	let showHelp = $state(false);
 	let parseErrors = $state<string[]>([]);
 	let isLoading = $state(false);
 	let loadingMessage = $state('');
@@ -206,6 +207,14 @@
 		<Settings size={14} />
 		API設定
 	</button>
+
+	<button
+		class="flex items-center justify-center rounded border border-slate-600 w-7 h-7 text-slate-300 hover:bg-slate-700 transition-colors"
+		onclick={() => showHelp = true}
+		title="使い方"
+	>
+		<HelpCircle size={14} />
+	</button>
 </header>
 
 {#if parseErrors.length > 0}
@@ -270,6 +279,78 @@
 					onclick={saveApiKeys}
 				>
 					保存
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+{#if showHelp}
+	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+		role="dialog"
+		aria-modal="true"
+		tabindex="-1"
+		onclick={() => showHelp = false}
+		onkeydown={(e) => { if (e.key === 'Escape') showHelp = false; }}
+	>
+		<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+		<div
+			class="w-full max-w-lg max-h-[80vh] overflow-y-auto rounded-lg bg-slate-800 p-6 shadow-xl"
+			role="document"
+			onclick={(e) => e.stopPropagation()}
+			onkeydown={(e) => e.stopPropagation()}
+		>
+			<h2 class="mb-4 text-lg font-bold text-cyan-400">LitLynx の使い方</h2>
+
+			<div class="space-y-4 text-sm text-slate-300 leading-relaxed">
+				<section>
+					<h3 class="font-semibold text-white mb-1">1. データの読み込み</h3>
+					<p>ヘッダーの「TSVファイル読み込み」ボタン、またはドラッグ＆ドロップでTSVファイルを読み込みます。</p>
+					<p class="mt-1 text-xs text-slate-500">必須カラム: ID, x, y, year, title, abstract, affiliation</p>
+				</section>
+
+				<section>
+					<h3 class="font-semibold text-white mb-1">2. マップ操作</h3>
+					<ul class="list-disc list-inside space-y-0.5 text-slate-400">
+						<li>マウスホイールでズーム、ドラッグでパン</li>
+						<li>散布図 / ヒートマップをヘッダーから切替</li>
+						<li>ホバーでタイトル表示、クリックで詳細表示</li>
+					</ul>
+				</section>
+
+				<section>
+					<h3 class="font-semibold text-white mb-1">3. 文献の選択</h3>
+					<ul class="list-disc list-inside space-y-0.5 text-slate-400">
+						<li>マップ左上のツールで矩形 / 円形の範囲選択</li>
+						<li>左パネルでテキスト検索（AND / OR / 正規表現）</li>
+						<li>動的フィルタでカラム値による絞り込み</li>
+					</ul>
+				</section>
+
+				<section>
+					<h3 class="font-semibold text-white mb-1">4. AIチャット</h3>
+					<ul class="list-disc list-inside space-y-0.5 text-slate-400">
+						<li>右パネルで選択/フィルタした文献についてAIに質問</li>
+						<li>Gemini / Claude を切替可能（要APIキー）</li>
+						<li>送信ボタンで送信（Enterは改行）</li>
+						<li>コンテキストは最大50件、履歴は直近10往復</li>
+					</ul>
+				</section>
+
+				<section>
+					<h3 class="font-semibold text-white mb-1">5. APIキーの設定</h3>
+					<p>ヘッダーの「API設定」からGemini / ClaudeのAPIキーを入力してください。キーはブラウザのlocalStorageに保存されます。</p>
+				</section>
+			</div>
+
+			<div class="mt-5 flex justify-end">
+				<button
+					class="rounded bg-blue-600 px-4 py-2 text-sm font-medium hover:bg-blue-500 transition-colors"
+					onclick={() => showHelp = false}
+				>
+					閉じる
 				</button>
 			</div>
 		</div>

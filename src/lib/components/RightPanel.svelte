@@ -41,7 +41,7 @@
 			filteredCount.subscribe((c) => { untrack(() => { filCount = c; }); }),
 			selectedArticles.subscribe((a) => {
 				untrack(() => {
-					contextArticles = a.slice(0, 10).map((ar) => ({ ID: ar.ID, title: ar.title }));
+					contextArticles = a.slice(0, CONTEXT_LIMITS.maxArticles).map((ar) => ({ ID: ar.ID, title: ar.title }));
 				});
 			}),
 		];
