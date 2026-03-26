@@ -58,10 +58,7 @@
 		readFile(file);
 	}
 
-	function handleDrop(event: DragEvent) {
-		event.preventDefault();
-		const file = event.dataTransfer?.files?.[0];
-		if (!file) return;
+	export function loadFile(file: File) {
 		readFile(file);
 	}
 
@@ -146,8 +143,6 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <header
 	class="flex items-center gap-3 border-b border-slate-700 bg-slate-900 px-4 py-2"
-	ondragover={(e) => e.preventDefault()}
-	ondrop={handleDrop}
 >
 	<h1 class="text-lg font-bold text-cyan-400 mr-2">LitLynx</h1>
 

@@ -7,6 +7,7 @@
 	import StatusBar from '$lib/components/StatusBar.svelte';
 	import { loadingStatus } from '$lib/stores';
 
+	let headerRef: Header;
 	let status = $state({ active: false, message: '', progress: 0 });
 
 	$effect(() => {
@@ -17,10 +18,16 @@
 		});
 		return unsub;
 	});
+
+	function handleMapDrop(e: DragEvent) {
+		e.preventDefault();
+		const file = e.dataTransfer?.files?.[0];
+		if (file && headerRef) headerRef.loadFile(file);
+	}
 </script>
 
 <div class="relative flex h-screen flex-col overflow-hidden">
-	<Header />
+	<Header bind:this={headerRef} />
 
 	<div class="flex flex-1 overflow-hidden">
 		<!-- Left Panel: Search / Filter / Article List (20%) -->
@@ -29,7 +36,12 @@
 		</div>
 
 		<!-- Center: Map View (flexible) -->
-		<div class="flex-1 min-w-0">
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div
+			class="flex-1 min-w-0"
+			ondragover={(e) => e.preventDefault()}
+			ondrop={handleMapDrop}
+		>
 			<MapView />
 		</div>
 
