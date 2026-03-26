@@ -109,6 +109,9 @@
 	function handleArticleClick(id: string) {
 		focusedArticleId.set(id);
 	}
+
+	let displayList = $derived(selectedIds.size > 0 ? filtered.filter((a) => selectedIds.has(a.ID)) : filtered);
+	let displayCount = $derived(displayList.length);
 </script>
 
 <div class="flex h-full flex-col overflow-hidden border-r border-slate-700 bg-slate-900">
@@ -215,11 +218,15 @@
 	<!-- Article List -->
 	<div class="flex-1 overflow-y-auto">
 		<div class="flex items-center justify-between p-2">
-			<span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">文献リスト</span>
-			<span class="text-xs text-slate-500">{fCount.toLocaleString()} 件</span>
+			<span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+				{selectedIds.size > 0 ? '選択文献' : '文献リスト'}
+			</span>
+			<span class="text-xs text-slate-500">
+				{selectedIds.size > 0 ? `${displayCount.toLocaleString()} / ${fCount.toLocaleString()} 件` : `${fCount.toLocaleString()} 件`}
+			</span>
 		</div>
 		<div class="space-y-0">
-			{#each filtered.slice(0, 200) as article}
+			{#each displayList.slice(0, 200) as article}
 				<button
 					class="block w-full border-t border-slate-800 px-3 py-2 text-left transition-colors hover:bg-slate-800 {selectedIds.has(article.ID) ? 'bg-blue-900/30 border-l-2 border-l-blue-500' : ''}"
 					onclick={() => handleArticleClick(article.ID)}
@@ -228,8 +235,8 @@
 					<p class="mt-0.5 text-xs text-slate-500 truncate">{article.affiliation}</p>
 				</button>
 			{/each}
-			{#if fCount > 200}
-				<p class="p-3 text-xs text-slate-600 text-center">先頭200件を表示中（全{fCount.toLocaleString()}件）</p>
+			{#if displayCount > 200}
+				<p class="p-3 text-xs text-slate-600 text-center">先頭200件を表示中（全{displayCount.toLocaleString()}件）</p>
 			{/if}
 		</div>
 	</div>

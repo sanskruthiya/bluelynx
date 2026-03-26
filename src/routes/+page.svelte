@@ -63,7 +63,7 @@
 				{#if status.progress > 0}
 					<div class="h-2 w-full overflow-hidden rounded-full bg-slate-700">
 						<div
-							class="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-500 ease-out"
+							class="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-150 ease-out"
 							style="width: {status.progress}%"
 						></div>
 					</div>
